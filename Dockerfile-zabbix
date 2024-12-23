@@ -1,0 +1,15 @@
+FROM zabbix/zabbix-server-mysql:alpine-6.4.9
+
+# Certifique-se de usar root para instalar pacotes
+USER root
+
+# Instala os pacotes necessários
+RUN apk add --no-cache \
+    bind-tools \
+    net-tools \
+    tcpdump \
+    net-snmp-tools
+
+# Volte para o usuário zabbix para manter a segurança
+USER zabbix
+

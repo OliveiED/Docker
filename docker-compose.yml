@@ -1,0 +1,145 @@
+version: '3.3'
+services:
+  dc001-mysql-server:
+    image: mysql:8.1.0-oracle
+    container_name: srv01-mysql-dc001
+    restart: unless-stopped
+    networks:
+      srv01-zbx-net:
+        ipv4_address: 10.10.10.10
+    command:
+      - mysqld
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --skip-character-set-client-handshake
+      - --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+    volumes:
+      - /docker/opt/srv-mysql-dc001/srv-mysql-dc001/mysql/var/lib/mysql:/var/lib/mysql:rw
+    ports:
+      - '3306:3306'
+
+  dc001-zbx-server-mysql:
+    build:
+      context: .
+      dockerfile: Dockerfile-zabbix
+    container_name: srv01-zbx-dc001-mysql
+    restart: unless-stopped
+    depends_on:
+      - dc001-mysql-server
+    environment:
+      DB_SERVER_HOST: "${DB_SERVER_HOST}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      ZBX_CACHESIZE: '2G'
+      ZBX_HISTORYCACHESIZE: '1G'
+      ZBX_HISTORYINDEXCACHESIZE: '1G'
+      ZBX_TRENDCACHESIZE: '512M'
+      ZBX_TRENDFUNCTIONCACHESIZE: '512M'
+      ZBX_VALUECACHESIZE: '256M'
+      ZBX_STARTPOLLERS: '95'
+      ZBX_STARTTRAPPERS: '25'
+      ZBX_TIMEOUT: '8'
+      ZBX_LOGSLOWQUERIES: '2000'
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/usr/lib/zabbix/alertscripts:/usr/lib/zabbix/alertscripts:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/usr/lib/zabbix/externalscripts:/usr/lib/zabbix/externalscripts:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/lib/zabbix/dbscripts:/var/lib/zabbix/dbscripts:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/lib/zabbix/export:/var/lib/zabbix/export:rw
+      - /docker/opt/srv-mysql-dc001/zbx_srv/lib/zabbix/modules:/var/lib/zabbix/modules:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/lib/zabbix/enc:/var/lib/zabbix/enc:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
+      - /docker/opt/srv-mysql-dc001/zbx_srv/var/tmp/zabbix:/var/tmp/zabbix:rw
+    ports:
+      - '19551:10051'
+    networks:
+      srv01-zbx-net:
+        ipv4_address: 10.10.10.50
+
+  dc001-zbx-web-nginx-mysql:
+    image: zabbix/zabbix-web-nginx-mysql:alpine-6.4.9
+    container_name: srv01-dc001-web-ngx-mysql
+    restart: unless-stopped
+    depends_on:
+      - dc001-zbx-server-mysql
+      - dc001-mysql-server
+    environment:
+      ZBX_SERVER_HOST: "${ZBX_SERVER_HOST}"
+      DB_SERVER_HOST: "${DB_SERVER_HOST}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      ZBX_SERVER_NAME: "${ZBX_SERVER_NAME}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    ports:
+      - '9552:8080'
+    networks:
+      - srv01-zbx-net
+
+  portainer:
+    image: portainer/portainer-ce
+    container_name: srv01-portainer
+    restart: unless-stopped
+    ports:
+      - '9000:9000'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - srv01-zbx-net
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: srv01-dc001-grafana
+    restart: unless-stopped
+    volumes:
+      - /docker/opt/srv-mysql-dc001/srv01-dc001-grafana/grafana:/var/lib/grafana
+      - /docker/opt/srv-mysql-dc001/srv01-dc001-grafana/public/maps:/usr/share/grafana/public/maps
+      - /docker/opt/srv-mysql-dc001/srv01-dc001-grafana/plugins:/var/lib/grafana/plugins
+    ports:
+      - '8954:3000'
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD}"
+      GF_INSTALL_PLUGINS: "alexanderzobnin-zabbix-app"
+    user: "0"
+    networks:
+      - srv01-zbx-net
+
+  dc001-zabbix-agent:
+    container_name: zabbix-agent
+    image: zabbix/zabbix-agent2:alpine-5.0.1
+    user: root
+    networks:
+      srv01-zbx-net:
+        ipv4_address: 10.10.10.100
+    restart: always
+    privileged: true
+    volumes:
+      - /var/run:/var/run
+    ports:
+      - '10050:10050'
+    environment:
+      ZBX_HOSTNAME: "${DB_SERVER_HOST}"
+      ZBX_SERVER_HOST: "10.10.10.50"
+      ZBX_SERVER: "10.10.10.50"
+
+networks:
+  srv01-zbx-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+
+volumes:
+  portainer_data:
