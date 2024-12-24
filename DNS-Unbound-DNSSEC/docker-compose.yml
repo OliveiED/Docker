@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+  portainer:
+    image: portainer/portainer-ce
+    container_name: srv01-portainer-freeway
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    networks:
+      - srv01-docker-net
+
+  unbound-primary:
+    container_name: srv01-unbound-primary
+    image: dockerfile-unbound
+    networks:
+      srv01-docker-net:
+        ipv4_address: 192.168.100.111
+    volumes:
+      - /home/oliveied/my-docker-setup/opt/unbound/etc/unbound/:/opt/unbound/etc/unbound
+    ports:
+      - "5301:53/tcp"
+      - "5301:53/udp"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "cnn.com"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'    # Limite de CPU
+          memory: 2048M    # Limite de memória
+    restart: unless-stopped
+
+  unbound-secondary:
+    container_name: srv02-unbound-secondary
+    image: dockerfile-unbound
+    networks:
+      srv01-docker-net:
+        ipv4_address: 192.168.100.112
+    volumes:
+      - /home/oliveied/my-docker-setup/opt/unbound/etc/unbound/:/opt/unbound/etc/unbound
+    ports:
+      - "5302:53/tcp"
+      - "5302:53/udp"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "nasa.org"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'    # Limite de CPU
+          memory: 2048M    # Limite de memória
+    restart: unless-stopped
+
+volumes:
+  portainer_data:
+
+networks:
+  srv01-docker-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
+
