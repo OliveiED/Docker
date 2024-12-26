@@ -99,6 +99,7 @@ A flag **AD** na resposta indica que a validação DNSSEC foi bem-sucedida.
   - `root.hints`
   - `unbound.conf`
   - `forward-records.conf`
+  - `instalar o dnsmasq e configurar o arquivo /etc/dnsmasq.conf`
 
 - **Portainer**: Interface web para gerenciamento de containers.
 

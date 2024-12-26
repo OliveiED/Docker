@@ -1,0 +1,55 @@
+services:  # Bloco principal de serviços
+
+  portainer:  # Serviço Portainer
+    image: portainer/portainer-ce
+    container_name: srv01-portainer-dc001
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - /etc/localtime:/etc/localtime:ro  # Monta o localtime do host no container (somente leitura)
+      - /etc/timezone:/etc/timezone:ro    # Monta o timezone do host no container (somente leitura)
+    networks:
+      - srv01-docker-net
+
+  pihole:  # Serviço Pi-hole
+    container_name: dc001-pihole-01
+    image: pihole/pihole:latest
+    shm_size: '512m'  # Aumenta o espaço da memória compartilhada para o Pi-hole
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8001:80/tcp"
+    environment:
+      TZ: 'America/Cuiaba'
+      WEBPASSWORD: 'Changeme'
+      FTLCONF_REPLY_TIMEOUT: '10'  # Timeout para resolver queries de DNS mais rápido
+      # PIHOLE_DNS_: '8.8.8.8;8.8.4.4'  # DNS upstream
+      PIHOLE_CACHE_SIZE: '10000'  # Cache de DNS otimizado
+    volumes:
+      - '/home/docker/my-docker-setup/etc-pihole/:/etc/pihole'
+    cap_add:
+      - CAP_NET_BIND_SERVICE
+      - CAP_SYS_NICE
+      - CAP_CHOWN
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'  # Limitar o uso de CPU
+          memory: '14336M'  # Limitar a memória para 14GB
+        reservations:
+          cpus: '4.0'  # Reservar pelo menos 4 CPUs
+          memory: '1024M'  # Reservar pelo menos 1GB de memória
+    restart: always
+
+volumes:  # Definição dos volumes
+  portainer_data:  # Volume persistente para Portainer
+
+networks:  # Definição das redes
+  srv01-docker-net:  # Rede personalizada para o Portainer e Pi-hole
+    driver: bridge  # Usando o driver padrão bridge
+    ipam:  # Configuração do IPAM (IP Address Management)
+      config:
+        - subnet: 192.168.100.0/24  # Define a sub-rede para a rede
