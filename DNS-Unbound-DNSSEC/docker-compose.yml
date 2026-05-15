@@ -1,6 +1,9 @@
+# Docker Compose para ambiente com Portainer e dois servidores Unbound
+# Versão do Compose comentada porque a sintaxe atual do Docker aceita sem ela.
 #version: '3'
 
 services:
+  # Interface web de administração do Docker
   portainer:
     image: portainer/portainer-ce
     container_name: srv01-portainer-freeway
@@ -17,6 +20,7 @@ services:
         ipv4_address: 192.168.100.110
         ipv6_address: fd00:100:200::110
 
+  # Servidor DNS Unbound primário
   unbound-primary:
     container_name: unbound-primary
     image: custom-unbound
@@ -41,6 +45,7 @@ services:
           memory: 2048M
     restart: unless-stopped
 
+  # Servidor DNS Unbound secundário
   unbound-secondary:
     container_name: unbound-secondary
     image: custom-unbound
@@ -66,9 +71,11 @@ services:
     restart: unless-stopped
 
 volumes:
+  # Volume persistente usado pelo Portainer
   portainer_data:
 
 networks:
+  # Rede customizada para IPs fixos dos containers
   srv01-docker-net:
     driver: bridge
     enable_ipv6: true
