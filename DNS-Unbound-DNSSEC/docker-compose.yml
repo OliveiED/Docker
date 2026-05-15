@@ -1,4 +1,4 @@
-version: '3'
+#version: '3'
 
 services:
   portainer:
@@ -13,16 +13,19 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
     networks:
-      - srv01-docker-net
+      srv01-docker-net:
+        ipv4_address: 192.168.100.110
+        ipv6_address: fd00:100:200::110
 
   unbound-primary:
-    container_name: srv01-unbound-primary
-    image: dockerfile-unbound
+    container_name: unbound-primary
+    image: custom-unbound
     networks:
       srv01-docker-net:
         ipv4_address: 192.168.100.111
+        ipv6_address: fd00:100:200::111
     volumes:
-      - /home/oliveied/my-docker-setup/opt/unbound/etc/unbound/:/opt/unbound/etc/unbound
+      - /home/docker/my-docker-setup/opt/unbound_01/etc/unbound/:/opt/unbound/etc/unbound
     ports:
       - "5301:53/tcp"
       - "5301:53/udp"
@@ -34,18 +37,19 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'    # Limite de CPU
-          memory: 2048M    # Limite de memória
+          cpus: '2.0'
+          memory: 2048M
     restart: unless-stopped
 
   unbound-secondary:
-    container_name: srv02-unbound-secondary
-    image: dockerfile-unbound
+    container_name: unbound-secondary
+    image: custom-unbound
     networks:
       srv01-docker-net:
         ipv4_address: 192.168.100.112
+        ipv6_address: fd00:100:200::112
     volumes:
-      - /home/oliveied/my-docker-setup/opt/unbound/etc/unbound/:/opt/unbound/etc/unbound
+      - /home/docker/my-docker-setup/opt/unbound_02/etc/unbound/:/opt/unbound/etc/unbound
     ports:
       - "5302:53/tcp"
       - "5302:53/udp"
@@ -57,8 +61,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'    # Limite de CPU
-          memory: 2048M    # Limite de memória
+          cpus: '2.0'
+          memory: 2048M
     restart: unless-stopped
 
 volumes:
@@ -67,7 +71,10 @@ volumes:
 networks:
   srv01-docker-net:
     driver: bridge
+    enable_ipv6: true
     ipam:
+      driver: default
       config:
         - subnet: 192.168.100.0/24
+        - subnet: fd00:100:200::/64
 
